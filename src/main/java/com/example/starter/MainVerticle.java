@@ -1,3 +1,5 @@
+// mvn package && mvn exec:java
+
 package com.example.starter;
 
 import io.vertx.core.AbstractVerticle;
@@ -11,13 +13,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainVerticle extends AbstractVerticle {
-
     @Override
     public void start(Promise<Void> startPromise) throws Exception {
         vertx.createHttpServer().requestHandler(req -> {
-            List<User> users = new ArrayList<>();
-            User user = new User(1, "firstname", "lastname", 25, "vertex");
-            users.add(user);
+            var users = new ArrayList(1000);
+            for (int i = 1; i < 1001; i++) {
+                var stringIndex = Integer.toString(i);
+                users.add(new User(
+                        i,
+                        "FirstName" + stringIndex,
+                        "LastName" + stringIndex,
+                        25,
+                        "Java Vert.x")
+                );
+            }
+
             req.response()
                     .putHeader("content-type", "application/json; charset=utf-8")
                     .end(Json.encode(users));
