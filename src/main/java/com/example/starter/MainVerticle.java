@@ -1,4 +1,5 @@
 // mvn package && mvn exec:java
+// mvn clean package && java -jar target/starter-1.0.0-SNAPSHOT-fat.jar
 
 package com.example.starter;
 
