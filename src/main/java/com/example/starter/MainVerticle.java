@@ -4,14 +4,12 @@
 package com.example.starter;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Promise;
-import io.vertx.core.buffer.Buffer;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class MainVerticle extends AbstractVerticle {
     @Override
@@ -40,5 +38,11 @@ public class MainVerticle extends AbstractVerticle {
                 startPromise.fail(http.cause());
             }
         });
+    }
+    
+    public static void main(String[] args){
+        Vertx vertx = Vertx.vertx();
+        DeploymentOptions options = new DeploymentOptions().setInstances(Runtime.getRuntime().availableProcessors());
+        vertx.deployVerticle(MainVerticle.class.getName(), options);
     }
 }
