@@ -3,46 +3,70 @@
 
 package com.example.starter;
 
+import java.util.Iterator;
+import java.util.stream.IntStream;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.Json;
-
-import java.util.ArrayList;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.buffer.impl.BufferImpl;
+import io.vertx.core.buffer.impl.VertxByteBufAllocator;
+import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.jackson.DatabindCodec;
 
 public class MainVerticle extends AbstractVerticle {
-    @Override
-    public void start(Promise<Void> startPromise) throws Exception {
-        vertx.createHttpServer().requestHandler(req -> {
-            var users = new ArrayList(1000);
-            for (int i = 1; i < 1001; i++) {
-                var stringIndex = Integer.toString(i);
-                users.add(new User(
-                        i,
-                        "FirstName" + stringIndex,
-                        "LastName" + stringIndex,
-                        25,
-                        "Java Vert.x")
-                );
-            }
 
-            req.response()
-                    .putHeader("content-type", "application/json; charset=utf-8")
-                    .end(Json.encode(users));
-        }).listen(8888, http -> {
-            if (http.succeeded()) {
-                startPromise.complete();
-                System.out.println("HTTP server started on port 8888");
-            } else {
-                startPromise.fail(http.cause());
-            }
-        });
-    }
-    
-    public static void main(String[] args){
-        Vertx vertx = Vertx.vertx();
-        DeploymentOptions options = new DeploymentOptions().setInstances(Runtime.getRuntime().availableProcessors());
-        vertx.deployVerticle(MainVerticle.class.getName(), options);
-    }
+	static final ObjectWriter UW;
+
+	static {
+//      needs <artifactId>jackson-datatype-jdk8</artifactId> to serialize streams directly
+//		DatabindCodec.mapper().registerModule(new Jdk8Module());
+//		UW = DatabindCodec.mapper().writerFor(new TypeReference<Stream<User>>() {});
+		UW = DatabindCodec.mapper().writerFor(new TypeReference<Iterator<User>>() {
+		});
+	}
+
+	public static void main(String[] args) {
+		Vertx vertx = Vertx.vertx();
+		DeploymentOptions options = new DeploymentOptions().setInstances(Runtime.getRuntime().availableProcessors());
+		vertx.deployVerticle(MainVerticle.class.getName(), options);
+	}
+
+	final BufferImpl buffer = (BufferImpl) Buffer.buffer(VertxByteBufAllocator.DEFAULT.directBuffer(128 * 1024));
+	final DataOut dout = new DataOut(buffer);
+
+	void handle(HttpServerRequest req) {
+		var users = IntStream.rangeClosed(1, 1001).mapToObj(i -> new User(
+				i,
+				"FirstName" + i,
+				"LastName" + i,
+				25,
+				"Java Vert.x"));
+
+		try {
+			UW.writeValue(dout.reset(), users.iterator());
+			req.response().putHeader("content-type", "application/json; charset=utf-8").end(buffer);
+		} catch (Exception e) {
+			req.response().setStatusCode(500).end();
+		}
+	}
+
+	@Override
+	public void start(Promise<Void> startPromise) throws Exception {
+		vertx.createHttpServer()
+				.requestHandler(this::handle)//
+				.listen(8888, http -> {
+					if (http.succeeded()) {
+						startPromise.complete();
+						System.out.println("HTTP server started on port 8888");
+					} else {
+						startPromise.fail(http.cause());
+					}
+				});
+	}
 }
