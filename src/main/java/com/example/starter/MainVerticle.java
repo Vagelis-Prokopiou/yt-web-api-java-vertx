@@ -22,6 +22,7 @@ import io.vertx.core.json.jackson.DatabindCodec;
 public class MainVerticle extends AbstractVerticle {
 
 	static final ObjectWriter UW;
+	static final int FEATURES;
 
 	static {
 //      needs <artifactId>jackson-datatype-jdk8</artifactId> to serialize streams directly
@@ -29,6 +30,7 @@ public class MainVerticle extends AbstractVerticle {
 //		UW = DatabindCodec.mapper().writerFor(new TypeReference<Stream<User>>() {});
 		UW = DatabindCodec.mapper().writerFor(new TypeReference<Iterator<User>>() {
 		});
+		FEATURES = UW.getFactory().getGeneratorFeatures();
 	}
 
 	public static void main(String[] args) {
@@ -38,7 +40,6 @@ public class MainVerticle extends AbstractVerticle {
 	}
 
 	final BufferImpl buffer = (BufferImpl) Buffer.buffer(VertxByteBufAllocator.DEFAULT.directBuffer(128 * 1024));
-	final DataOut dout = new DataOut(buffer);
 
 	void handle(HttpServerRequest req) {
 		var users = IntStream.rangeClosed(1, 1001).mapToObj(i -> new User(
@@ -49,7 +50,7 @@ public class MainVerticle extends AbstractVerticle {
 				"Java Vert.x"));
 
 		try {
-			UW.writeValue(dout.reset(), users.iterator());
+			UW.writeValue(ByteBufJsonGenerator.allocate(buffer.byteBuf().clear(), FEATURES), users.iterator());
 			req.response().putHeader("content-type", "application/json; charset=utf-8").end(buffer);
 		} catch (Exception e) {
 			req.response().setStatusCode(500).end();
